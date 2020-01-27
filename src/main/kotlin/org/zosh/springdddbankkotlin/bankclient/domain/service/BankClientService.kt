@@ -14,11 +14,6 @@ import org.zosh.springdddbankkotlin.bankclient.domain.repository.BankClientRepos
 import org.zosh.springdddbankkotlin.bankclient.domain.valueobject.AccountNo
 import org.zosh.springdddbankkotlin.bankclient.domain.valueobject.Amount
 
-/**
- * TODO
- *  1. application service, domain service 구분
- *  2. domain logic에 영향을 주지 않는 side effect 들 application service 로 분리
- */
 @Service
 class BankClientService(
     private val bankClientRepository: BankClientRepository,
