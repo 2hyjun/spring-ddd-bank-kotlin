@@ -7,9 +7,11 @@ import javax.persistence.Entity
 import javax.persistence.FetchType
 import javax.persistence.NamedAttributeNode
 import javax.persistence.NamedEntityGraph
+import javax.persistence.NamedSubgraph
 import javax.persistence.OneToMany
 import org.zosh.springdddbankkotlin.bankclient.domain.exception.AccountNotFoundException
 import org.zosh.springdddbankkotlin.bankclient.domain.exception.IllegalUsernameException
+import org.zosh.springdddbankkotlin.bankclient.domain.exception.InsufficientBalanceException
 import org.zosh.springdddbankkotlin.bankclient.domain.exception.InvalidDepositAmountException
 import org.zosh.springdddbankkotlin.bankclient.domain.valueobject.AccountNo
 import org.zosh.springdddbankkotlin.bankclient.domain.valueobject.Amount
@@ -19,7 +21,14 @@ import org.zosh.springdddbankkotlin.bankclient.domain.valueobject.Amount
  */
 @NamedEntityGraph(
     name = "bankClient.accountAccesses",
-    attributeNodes = [NamedAttributeNode(value = "accountAccesses")]
+    attributeNodes = [NamedAttributeNode(value = "accountAccesses", subgraph = "sub.accountAccess.account")],
+    subgraphs = [
+        NamedSubgraph(
+            name = "sub.accountAccess.account",
+            attributeNodes = [NamedAttributeNode(value = "bankAccount")]
+        )
+    ]
+
 )
 @Entity
 class BankClient(
@@ -27,7 +36,7 @@ class BankClient(
     @Column val birthDate: Instant
 ) : EntityBase<BankClient>() {
 
-    @OneToMany(fetch = FetchType.LAZY)
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "bankClient")
     val accountAccesses: Set<AccountAccess> = emptySet()
 
     companion object {
@@ -41,35 +50,63 @@ class BankClient(
         return String.format("BankClient{id=%d, name='%s', birthDate='%s'}", this.id, username, birthDate)
     }
 
-    fun createAccount(accountName: String): Pair<BankAccount, AccountAccess> {
-        val account = BankAccount(name = accountName)
-        return Pair(account, AccountAccess(owner = true, bankClient = this, bankAccount = account))
-    }
-
     /**
      * client 가 가진 account 중 owner 인 것이 하나도 없어야함.
      */
-    val possibleToDelete
-        get() = !this.accountAccesses.any { it.owner }
+    fun possibleToDelete() = !this.accountAccesses.any { it.owner }
 
-    val nextDefaultAccountName
-        get() = "${this.username}-account#${this.accountAccesses.size + 1}"
+    fun nextDefaultAccountName() = "${this.username}-account#${this.accountAccesses.size + 1}"
 
     fun validate() =
         if (!USER_NAME_REGEX.matches(this.username)) throw IllegalUsernameException(this.username)
         else this
 
     fun deposit(accountNo: AccountNo, amount: Amount): BankAccount {
-        if (amount.compareTo(Amount.ZERO) <= 0) {
+        if (amount <= Amount.ZERO) {
             throw InvalidDepositAmountException("Amount should be over ZERO")
         }
 
-        val account = this.findAccount(accountNo)
+        val account = this.findMyAccount(accountNo)
             .orElseThrow { AccountNotFoundException(accountNo, this) }
 
         return account.apply { balance = balance.plus(amount) }
     }
 
-    fun findAccount(accountNo: AccountNo) =
-        Optional.ofNullable(this.accountAccesses.find { it.bankAccount.accountNo == accountNo }?.bankAccount)
+    fun createAccount(accountName: String): Pair<BankAccount, AccountAccess> {
+        val account = BankAccount(name = accountName)
+        return Pair(account, AccountAccess(owner = true, bankClient = this, bankAccount = account))
+    }
+
+    fun findMyAccount(accountNo: AccountNo) =
+        Optional.ofNullable(this.accountAccesses.find { it.bankAccount.getAccountNo() == accountNo }?.bankAccount)
+
+    fun accountsReport(): String {
+        val report = StringBuilder().append(String.format("Accounts of client: %s\n", username))
+        this.accountAccesses.forEach {
+            val accessRight = if (it.owner) "isOwner" else "manages"
+            val account = it.bankAccount
+            report.append(
+                String.format(
+                    "%s\t%s\t%5.2f\t%s\n", account.getAccountNo(), accessRight,
+                    account.balance.toDouble(), account.name
+                )
+            )
+        }
+
+        return report.toString()
+    }
+
+    fun transfer(sourceAccountNo: AccountNo, destination: BankAccount, amount: Amount): Pair<BankAccount, BankAccount> {
+        val source = this.findMyAccount(sourceAccountNo)
+            .orElseThrow { AccountNotFoundException(sourceAccountNo, this) }
+
+        if (source.balance < amount) {
+            throw InsufficientBalanceException("Transfer requested amount: ${amount.toDouble()}, current balance: ${source.balance.toDouble()}")
+        }
+
+        source.apply { balance = balance.minus(amount) }
+        destination.apply { balance = balance.plus(amount) }
+
+        return Pair(source, destination)
+    }
 }

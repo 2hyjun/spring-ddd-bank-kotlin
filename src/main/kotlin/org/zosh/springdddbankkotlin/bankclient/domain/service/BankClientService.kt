@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.zosh.springdddbankkotlin.bankclient.domain.entity.AccountAccess
 import org.zosh.springdddbankkotlin.bankclient.domain.entity.BankAccount
 import org.zosh.springdddbankkotlin.bankclient.domain.entity.BankClient
+import org.zosh.springdddbankkotlin.bankclient.domain.exception.AccountNotFoundException
 import org.zosh.springdddbankkotlin.bankclient.domain.exception.CannotDeleteClientException
 import org.zosh.springdddbankkotlin.bankclient.domain.repository.AccountAccessRepository
 import org.zosh.springdddbankkotlin.bankclient.domain.repository.BankAccountRepository
@@ -35,7 +36,7 @@ class BankClientService(
 
     @Transactional
     fun deleteClient(client: BankClient) {
-        if (!client.possibleToDelete) {
+        if (!client.possibleToDelete()) {
             throw CannotDeleteClientException("client#${client.id} has accounts as owner")
         }
 
@@ -55,8 +56,9 @@ class BankClientService(
      * }
      *
      */
+    @Transactional
     fun createAccount(client: BankClient, accountName: String?): AccountAccess {
-        val (account, access) = client.createAccount(accountName ?: client.nextDefaultAccountName)
+        val (account, access) = client.createAccount(accountName ?: client.nextDefaultAccountName())
         val savedAccount = bankAccountRepository.save(account)
         val accessWithAccount = access.apply { bankAccount = savedAccount }
         return accountAccessRepository.save(accessWithAccount)
@@ -67,8 +69,19 @@ class BankClientService(
         return accountAccessRepository.save(accountAccess)
     }
 
-    fun deposit(client: BankClient, destination: AccountNo, amount: Amount) {
+    fun deposit(client: BankClient, destination: AccountNo, amount: Amount): BankAccount {
         val newAccount = client.deposit(destination, amount)
-        bankAccountRepository.save(newAccount)
+        return bankAccountRepository.save(newAccount)
+    }
+
+    @Transactional
+    fun transfer(client: BankClient, sourceAccountNo: AccountNo, destinationAccountNo: AccountNo, amount: Amount): BankAccount {
+        val destination = bankAccountRepository.findByAccountNo(destinationAccountNo)
+            .orElseThrow { AccountNotFoundException(destinationAccountNo, null) }
+
+        val (newSource, newDestination) = client.transfer(sourceAccountNo, destination, amount)
+        bankAccountRepository.save(newSource)
+        bankAccountRepository.save(newDestination)
+        return newDestination
     }
 }

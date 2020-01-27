@@ -12,7 +12,9 @@ class BankClientRepositoryImpl(
     override fun save(entity: BankClient) = crudRepository.save(entity)
     override fun delete(entity: BankClient) = crudRepository.delete(entity)
     override fun findById(id: Long) = crudRepository.findById(id)
+    override fun findByIdWithAccountAccess(id: Long) = crudRepository.findByIdWithAccountAccess(id)
 
     override fun findAll() = crudRepository.findAllWithAccountAccess()
     override fun findByUsername(username: String): Optional<BankClient> = crudRepository.findByUsername(username)
+    override fun findByUsernameWithAccountAccess(username: String): Optional<BankClient> = crudRepository.findByUsernameWithAccountAccess(username)
 }

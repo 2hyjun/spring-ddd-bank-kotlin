@@ -23,7 +23,7 @@ data class Amount(
         return cents / 100.0
     }
 
-    fun compareTo(other: Amount) = this.toDouble().compareTo(other.toDouble())
+    operator fun compareTo(other: Amount) = this.toDouble().compareTo(other.toDouble())
 
     override fun toString() = this.cents.toString()
 }

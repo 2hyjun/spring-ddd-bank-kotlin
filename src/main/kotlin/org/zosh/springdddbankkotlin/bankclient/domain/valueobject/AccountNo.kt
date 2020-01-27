@@ -5,7 +5,7 @@ package org.zosh.springdddbankkotlin.bankclient.domain.valueobject
  * identify an BankAccount.
  */
 data class AccountNo(
-    private val number: Long
+    val number: Long
 ) {
     constructor(numberStr: String) : this(numberStr.toLong())
 

@@ -1,5 +1,6 @@
 package org.zosh.springdddbankkotlin.bankclient.domain.entity
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import javax.persistence.Column
 import javax.persistence.Entity
 import org.zosh.springdddbankkotlin.bankclient.domain.valueobject.AccountNo
@@ -21,10 +22,10 @@ class BankAccount(
 
     constructor() : this(name = "")
 
-    val accountNo: AccountNo
-        get() = AccountNo(this.id)
+    @JsonIgnore
+    fun getAccountNo(): AccountNo = AccountNo(this.id)
 
     override fun toString(): String {
-        return String.format("BankAccount{accountNo=%d, name='%s', balance='%s'}", accountNo, name, balance)
+        return String.format("BankAccount{accountNo=%d, name='%s', balance='%s'}", getAccountNo(), name, balance)
     }
 }

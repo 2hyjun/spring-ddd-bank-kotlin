@@ -8,4 +8,6 @@ interface BankClientRepository : DefaultRepository<BankClient> {
     fun findAll(): List<BankClient>
     fun findByUsername(username: String): Optional<BankClient>
     fun delete(entity: BankClient)
+    fun findByUsernameWithAccountAccess(username: String): Optional<BankClient>
+    fun findByIdWithAccountAccess(id: Long): Optional<BankClient>
 }

@@ -22,13 +22,14 @@ abstract class EntityBase<T : EntityBase<T>> {
             return false
         }
 
+        this.checkPersisted()
+        other.checkPersisted()
+
         return this.id == other.id
     }
 
-    private fun checkIdentity(entity: EntityBase<*>) {
-        if (entity.id == DEFAULT_ID) {
-            throw IllegalStateException("Identity missing in identity" + entity)
-        }
+    private fun checkPersisted() {
+        if (!this.persisted) throw IllegalStateException("Identity missing in identity $this")
     }
 
     private val persisted: Boolean
